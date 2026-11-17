@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="ru" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ФинДашборд — Скринер акций MOEX</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.5.0/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+
+        /* Light Theme */
+        html.light body {
+            background: linear-gradient(180deg, #EEF0FF 0%, #FFFFFF 25%, #F8FAFC 100%);
+            min-height: 100vh;
+            color: #1E293B;
+        }
+        html.light .card {
+            background: #FFFFFF;
+            border-color: rgba(226, 232, 240, 0.8);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.03);
+        }
+        html.light .ticker-item:hover { background-color: #F8FAFC; }
+        html.light .ticker-item.active { background-color: #EEF2FF; border-color: #6366F1; }
+        html.light .btn-tf:not(.active) { background-color: #F1F5F9; color: #475569; }
+        html.light .btn-tf:not(.active):hover { background-color: #E2E8F0; }
+        html.light .btn-type:not(.active) { background-color: #F1F5F9; color: #475569; }
+        html.light .analytics-box { background: #F8FAFC; border-color: #E2E8F0; color: #475569; }
+        html.light .popover-panel { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 10px 40px rgba(0,0,0,0.12); }
+        html.light .setting-row { border-color: #F1F5F9; }
+        html.light .settings-btn-style { background: #F1F5F9; color: #475569; border-color: #E2E8F0; }
+        html.light .settings-btn-style:hover { background: #E2E8F0; }
+        html.light .zoom-btn { background: #F1F5F9; color: #475569; border-color: #E2E8F0; }
+        html.light .zoom-btn:hover { background: #E2E8F0; }
+        html.light .compare-panel { background: #FFFFFF; border-color: #E2E8F0; box-shadow: 0 10px 40px rgba(0,0,0,0.12); }
+
+        /* Dark Theme */
+        html.dark body {
+            background: linear-gradient(180deg, #0B1120 0%, #0F172A 25%, #0F172A 100%);
+            min-height: 100vh;
+            color: #F8FAFC;
+        }
+        html.dark .card {
+            background: #1E293B;
+            border-color: #334155;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.2);
+        }
+        html.dark .ticker-item:hover { background-color: #263348; }
+        html.dark .ticker-item.active { background-color: #312E81; border-color: #6366F1; }
+        html.dark .btn-tf:not(.active) { background-color: #334155; color: #CBD5E1; }
+        html.dark .btn-tf:not(.active):hover { background-color: #475569; }
+        html.dark .btn-type:not(.active) { background-color: #334155; color: #CBD5E1; }
+        html.dark .analytics-box { background: #0F172A; border-color: #334155; color: #94A3B8; }
+        html.dark .popover-panel { background: #1E293B; border-color: #334155; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+        html.dark .setting-row { border-color: #334155; }
+        html.dark .text-slate-800 { color: #F8FAFC; }
+        html.dark .text-slate-700 { color: #E2E8F0; }
+        html.dark .text-slate-500 { color: #94A3B8; }
+        html.dark .text-slate-400 { color: #64748B; }
+        html.dark .bg-indigo-50 { background-color: #312E81; }
+        html.dark .text-indigo-500 { color: #818CF8; }
+        html.dark .bg-emerald-50 { background-color: #064E3B; }
+        html.dark .text-emerald-700 { color: #6EE7B7; }
+        html.dark .bg-red-50 { background-color: #7F1D1D; }
+        html.dark .text-red-700 { color: #FCA5A5; }
+        html.dark .border-slate-100 { border-color: #334155; }
+        html.dark .settings-btn-style { background: #334155; color: #CBD5E1; border-color: #475569; }
+        html.dark .settings-btn-style:hover { background: #475569; }
+        html.dark .zoom-btn { background: #334155; color: #CBD5E1; border-color: #475569; }
+        html.dark .zoom-btn:hover { background: #475569; }
+        html.dark .compare-panel { background: #1E293B; border-color: #334155; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+
+        .card {
+            border-radius: 16px;
+            border: 1px solid;
+            transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+        .card-lg { border-radius: 20px; }
+
+        .ticker-item {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .ticker-item.active { border-color: #6366F1; }
+
+        .btn-tf {
+            transition: all 0.15s ease;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .btn-tf.active {
+            background-color: #6366F1;
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+        .btn-type {
+            transition: all 0.15s ease;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .btn-type.active {
+            background-color: #7C3AED;
+            color: white;
+        }
+        .btn-type:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+        .live-dot { animation: pulse-live 2s infinite ease-in-out; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+        html.dark ::-webkit-scrollbar-thumb { background: #475569; }
+        html.dark ::-webkit-scrollbar-thumb:hover { background: #64748B; }
+
+        body.font-bold-mode { font-weight: 600; }
+        body.font-bold-mode h1, body.font-bold-mode h2, body.font-bold-mode .font-extrabold { font-weight: 800 !important; }
+        body.font-bold-mode .font-bold { font-weight: 700 !important; }
+        body.font-bold-mode .font-semibold { font-weight: 700 !important; }
+        body.font-bold-mode .font-medium { font-weight: 600 !important; }
+        body.font-bold-mode .tabular-nums { font-weight: 700 !important; }
+        body.font-bold-mode .btn-tf, body.font-bold-mode .btn-type { font-weight: 700 !important; }
+        body.font-bold-mode p, body.font-bold-mode span, body.font-bold-mode a, body.font-bold-mode label, body.font-bold-mode button { font-weight: 600; }
+
+        .analytics-box {
+            border-radius: 10px;
+            padding: 12px 16px;
+            border: 1px solid;
+            font-style: normal;
+            font-size: 14px;
+            line-height: 1.6;
+            transition: all 0.4s ease;
+        }
+
+        .popover-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 280px;
+            border-radius: 16px;
+            border: 1px solid;
+            z-index: 100;
+            padding: 8px;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid;
+            border-radius: 10px;
+        }
+        .setting-row:last-child { border-bottom: none; }
+
+        .toggle-btn-group {
+            display: flex;
+            background: #F1F5F9;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        html.dark .toggle-btn-group { background: #0F172A; }
+        .toggle-btn {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: transparent;
+            color: #64748B;
+        }
+        .toggle-btn.active {
+            background: #6366F1;
+            color: white;
+            box-shadow: 0 1px 4px rgba(99,102,241,0.3);
+        }
+
+        .settings-btn-style {
+            transition: all 0.2s ease;
+            border: 1px solid;
+            border-radius: 10px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 500px;
+            width: 100%;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 20;
+            display: flex;
+            gap: 4px;
+        }
+        .zoom-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            backdrop-filter: blur(8px);
+        }
+        .zoom-btn.reset-btn {
+            width: auto;
+            padding: 0 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Glassmorphism tooltip */
+        #chart-tooltip {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.12s ease, transform 0.12s ease;
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+            border-radius: 12px;
+            padding: 10px 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+            font-size: 12px;
+            min-width: 170px;
+        }
+        html.dark #chart-tooltip {
+            background: rgba(15, 23, 42, 0.85);
+            border-color: rgba(51, 65, 85, 0.6);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        }
+        #chart-tooltip.visible { opacity: 1; }
+        .tooltip-title {
+            font-weight: 600;
+            color: #64748B;
+            margin-bottom: 6px;
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+        .tooltip-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 2px 0;
+        }
+        .tooltip-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: #475569;
+        }
+        html.dark .tooltip-label { color: #CBD5E1; }
+        .tooltip-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .tooltip-value {
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #1E293B;
+        }
+        html.dark .tooltip-value { color: #F1F5F9; }
+        .tooltip-change {
+            font-weight: 600;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Compare panel */
+        .compare-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 310px;
+            border-radius: 16px;
+            border: 1px solid;
+            z-index: 100;
+            padding: 16px;
+        }
+        .compare-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            user-select: none;
+        }
+        .compare-item:hover { background: rgba(99,102,241,0.06); }
+        html.dark .compare-item:hover { background: rgba(99,102,241,0.15); }
+        .compare-check-custom {
+            width: 18px;
+            height: 18px;
+            border-radius: 5px;
+            border: 2px solid #CBD5E1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .compare-check-custom.checked {
+            border-color: #6366F1;
+            background: #6366F1;
+        }
+        .compare-check-custom svg { opacity: 0; transition: opacity 0.15s; }
+        .compare-check-custom.checked svg { opacity: 1; }
+        .divider-v {
+            width: 1px;
+            height: 24px;
+            background: #E2E8F0;
+            margin: 0 6px;
+        }
+        html.dark .divider-v { background: #475569; }
+
+        .apply-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        .apply-btn.ready { background: #6366F1; color: white; }
+        .apply-btn.ready:hover { background: #4F46E5; }
+        .apply-btn.disabled { background: #E2E8F0; color: #94A3B8; cursor: not-allowed; }
+        html.dark .apply-btn.disabled { background: #334155; color: #64748B; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <main class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-4">
+        
+        <!-- Left Sidebar -->
+        <aside class="w-full lg:w-[340px] xl:w-[360px] flex-shrink-0">
+            <div class="card p-4 sticky top-4">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider">Инструменты</h2>
+                    <div id="market-badge" class="flex items-center gap-1.5">
+                        <div id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 live-dot"></div>
+                        <span id="status-text" class="text-[10px] font-semibold text-emerald-500 uppercase tracking-wide">Live</span>
+                    </div>
+                </div>
+                <div id="sidebar-list" class="flex flex-col gap-2 max-h-[calc(100vh-120px)] overflow-y-auto pr-1"></div>
+            </div>
+        </aside>
+
+        <!-- Right Content -->
+        <section class="flex-1 min-w-0 flex flex-col gap-4">
+            
+            <!-- Summary Card -->
+            <div class="card card-lg p-6 relative">
+                <div class="absolute top-5 right-5 z-20" id="settings-wrapper">
+                    <button id="settings-btn" class="settings-btn-style flex items-center gap-1.5 px-3 py-2 text-xs font-semibold">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span>Настройки</span>
+                    </button>
+                    <div id="settings-popover" class="popover-panel hidden">
+                        <div class="px-3 py-2 mb-1">
+                            <h3 class="text-sm font-bold">Настройки интерфейса</h3>
+                        </div>
+                        <div class="setting-row">
+                            <span class="text-sm font-semibold">Тема</span>
+                            <div class="toggle-btn-group" id="theme-toggle">
+                                <button class="toggle-btn active" data-theme="light">Светлая</button>
+                                <button class="toggle-btn" data-theme="dark">Тёмная</button>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <span class="text-sm font-semibold">Шрифт</span>
+                            <div class="toggle-btn-group" id="font-toggle">
+                                <button class="toggle-btn active" data-font="normal">Обычный</button>
+                                <button class="toggle-btn" data-font="bold">Жирный</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pr-32">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1">
+                            <h1 id="summary-name" class="text-2xl font-bold transition-colors">—</h1>
+                            <span id="summary-ticker" class="text-sm font-bold text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors">—</span>
+                        </div>
+                        <div class="flex items-baseline gap-3 mt-2">
+                            <span id="summary-price" class="text-4xl font-extrabold tabular-nums transition-colors">—</span>
+                            <span class="text-lg text-slate-400 font-medium" id="summary-currency">руб.</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 self-start sm:self-center">
+                        <span id="summary-change-abs" class="text-lg font-bold tabular-nums">—</span>
+                        <span id="summary-change-pct" class="text-sm font-bold px-3 py-1.5 rounded-lg tabular-nums">—</span>
+                    </div>
+                </div>
+                
+                <div class="mt-5 pt-5 border-t border-slate-100 transition-colors">
+                    <div id="summary-analytics" class="analytics-box">Загрузка аналитики...</div>
+                </div>
+            </div>
+
+            <!-- Chart Controls -->
+            <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase mr-1">Период:</span>
+                    <div id="tf-buttons" class="flex gap-1.5">
+                        <button class="btn-tf" data-tf="1H">1Ч</button>
+                        <button class="btn-tf active" data-tf="1D">1Д</button>
+                        <button class="btn-tf" data-tf="1W">1Н</button>
+                        <button class="btn-tf" data-tf="1M">1М</button>
+                        <button class="btn-tf" data-tf="1Y">1Г</button>
+                        <button class="btn-tf" data-tf="ALL">Всё</button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs font-bold text-slate-400 uppercase mr-1">Тип:</span>
+                    <div id="type-buttons" class="flex gap-1.5">
+                        <button class="btn-type active" data-type="area">Линия</button>
+                        <button class="btn-type" data-type="bar">Столбцы</button>
+                        <button class="btn-type" data-type="candle">Свечи</button>
+                    </div>
+                    <div class="divider-v"></div>
+                    <div class="relative" id="compare-wrapper">
+                        <button id="compare-btn" class="btn-type flex items-center gap-1.5" title="Режим сравнения инструментов">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                            <span>Сравнение</span>
+                        </button>
+                        <div id="compare-panel" class="compare-panel hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-bold">Выберите инструменты</h3>
+                            </div>
+                            <div id="compare-list" class="flex flex-col gap-1 mb-3 max-h-[240px] overflow-y-auto"></div>
+                            <p id="compare-hint" class="text-xs text-amber-600 dark:text-amber-400 font-medium mb-3 px-1">Выберите минимум 2 акции для сравнения</p>
+                            <button id="compare-apply" class="apply-btn disabled" disabled>Применить сравнение</button>
+                        </div>
+                    </div>
+                    <button id="compare-reset-btn" class="hidden btn-type text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1 text-xs font-semibold">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Сбросить сравнение
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="card card-lg p-4 sm:p-6">
+                <div class="chart-wrapper" id="chart-container">
+                    <div class="zoom-controls" id="zoom-controls">
+                        <button class="zoom-btn" id="zoom-in" title="Приблизить">+</button>
+                        <button class="zoom-btn" id="zoom-out" title="Отдалить">−</button>
+                        <button class="zoom-btn reset-btn" id="zoom-reset" title="Сброс масштаба">Сброс</button>
+                    </div>
+                    <canvas id="main-chart"></canvas>
+                    <div id="chart-tooltip"></div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+<script>
+// ==============================================================================
+// CONFIGURATION & STATE
+// ==============================================================================
+const INSTRUMENTS = [
+    { id: 'MRKP', name: 'Россети Центр и Приволжье', board: 'TQBR', engine: 'stock', market: 'shares', type: 'stock' },
+    { id: 'MRKC', name: 'Россети Центр', board: 'TQBR', engine: 'stock', market: 'shares', type: 'stock' },
+    { id: 'MSRS', name: 'Россети Московский регион', board: 'TQBR', engine: 'stock', market: 'shares', type: 'stock' },
+    { id: 'USD000UTSTOM', name: 'Доллар США / Рубль', board: 'CETS', engine: 'currency', market: 'selt', type: 'currency' },
+    { id: 'SBER', name: 'Сбербанк', board: 'TQBR', engine: 'stock', market: 'shares', type: 'stock' },
+    { id: 'GAZP', name: 'Газпром', board: 'TQBR', engine: 'stock', market: 'shares', type: 'stock' },
+    { id: 'BR-1.26', name: 'Нефть Brent (фьючерс)', board: 'RFUD', engine: 'futures', market: 'forts', type: 'futures', baseTicker: 'BR' }
+];
+
+const COMPARE_COLORS = ['#6366F1', '#EF4444', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+const REFRESH_INTERVAL = 5;
+
+const state = {
+    activeId: 'MRKP',
+    comparePendingIds: new Set(),
+    compareActiveIds: [],
+    compareMode: false,
+    timeframe: '1D',
+    chartType: 'area',
+    savedChartType: 'area',
+    quotes: {},
+    histories: {},
+    isSimulating: false,
+    chartInstance: null,
+    pluginsRegistered: false,
+    theme: localStorage.getItem('fd_theme') || 'light',
+    fontWeight: localStorage.getItem('fd_fontWeight') || 'normal',
+    isInitialLoad: true
+};
+
+// ==============================================================================
+// CHART.JS PLUGINS
+// ==============================================================================
+const crosshairPlugin = {
+    id: 'crosshair',
+    afterDraw(chart) {
+        if (chart._crosshairX == null) return;
+        const { ctx, chartArea: { top, bottom, left, right } } = chart;
+        const x = chart._crosshairX;
+        const y = chart._crosshairY;
+        if (x < left || x > right) return;
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1;
+        const isDark = state.theme === 'dark';
+        ctx.strokeStyle = isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.25)';
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
+        if (y >= top && y <= bottom) {
+            ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+        }
+        ctx.restore();
+    },
+    afterEvent(chart, args) {
+        const e = args.event;
+        if (e.type === 'mousemove') { chart._crosshairX = e.x; chart._crosshairY = e.y; chart.draw(); }
+        else if (e.type === 'mouseout') { chart._crosshairX = null; chart._crosshairY = null; chart.draw(); }
+    }
+};
+
+const glowPlugin = {
+    id: 'lineGlow',
+    beforeDatasetDraw(chart, args) {
+        const ds = chart.data.datasets[args.index];
+        if (chart.config.type === 'line' && ds.borderColor && !ds._isCandle) {
+            const ctx = chart.ctx;
+            ctx.save();
+            const color = typeof ds.borderColor === 'string' ? ds.borderColor : '#6366F1';
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 14;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        }
+    },
+    afterDatasetDraw(chart, args) {
+        const ds = chart.data.datasets[args.index];
+        if (chart.config.type === 'line' && ds.borderColor && !ds._isCandle) {
+            chart.ctx.restore();
+        }
+    }
+};
+
+const candlestickPlugin = {
+    id: 'candlestickDrawer',
+    afterDatasetsDraw(chart) {
+        if (chart.config.type !== 'bar') return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || meta.data.length === 0) return;
+        const ds = chart.data.datasets[0];
+        if (!ds._isCandle) return;
+        const ctx = chart.ctx;
+        const yScale = chart.scales.y;
+        const ohlc = ds._ohlc;
+        if (!ohlc) return;
+        const barWidth = meta.data[0] ? Math.max(meta.data[0].width || 6, 3) : 6;
+        const wickWidth = Math.max(1, barWidth * 0.12);
+        ctx.save();
+        for (let i = 0; i < meta.data.length; i++) {
+            const bar = meta.data[i];
+            const x = bar.x;
+            const d = ohlc[i];
+            if (!d) continue;
+            const oY = yScale.getPixelForValue(d.o);
+            const hY = yScale.getPixelForValue(d.h);
+            const lY = yScale.getPixelForValue(d.l);
+            const cY = yScale.getPixelForValue(d.c);
+            const isUp = d.c >= d.o;
+            const color = isUp ? '#10B981' : '#EF4444';
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = wickWidth;
+            ctx.moveTo(x, hY);
+            ctx.lineTo(x, lY);
+            ctx.stroke();
+            const bodyTop = Math.min(oY, cY);
+            const bodyHeight = Math.max(Math.abs(cY - oY), 1);
+            ctx.fillStyle = color;
+            ctx.fillRect(x - barWidth / 2, bodyTop, barWidth, bodyHeight);
+        }
+        ctx.restore();
+    }
+};
+
+function registerPlugins() {
+    if (state.pluginsRegistered) return;
+    Chart.register(crosshairPlugin, glowPlugin, candlestickPlugin);
+    state.pluginsRegistered = true;
+}
+
+// ==============================================================================
+// EXTERNAL TOOLTIP (Glassmorphism)
+// ==============================================================================
+function externalTooltipHandler(context) {
+    const { chart, tooltip } = context;
+    const tooltipEl = document.getElementById('chart-tooltip');
+    if (!tooltipEl) return;
+
+    if (tooltip.opacity === 0) {
+        tooltipEl.classList.remove('visible');
+        return;
+    }
+
+    let html = '';
+    if (tooltip.title && tooltip.title.length) {
+        html += `<div class="tooltip-title">${tooltip.title[0]}</div>`;
+    }
+
+    if (tooltip.body) {
+        const bodyLines = tooltip.body.map(b => b.lines);
+        tooltip.labelColors.forEach((colorObj, i) => {
+            const lines = bodyLines[i];
+            if (!lines) return;
+            const color = colorObj.borderColor || COMPARE_COLORS[i % COMPARE_COLORS.length];
+            lines.forEach(line => {
+                const parts = line.split(':');
+                const label = parts[0].trim() || '';
+                const value = parts.slice(1).join(':').trim() || '';
+                html += `<div class="tooltip-row">
+                    <span class="tooltip-label"><span class="tooltip-dot" style="background:${color}"></span>${label}</span>
+                    <span class="tooltip-value">${value}</span>
+                </div>`;
+            });
+        });
+    }
+
+    if (!state.compareMode && tooltip.dataPoints && tooltip.dataPoints.length > 0) {
+        const q = state.quotes[state.activeId];
+        if (q) {
+            const isUp = q.changePct >= 0;
+            const changeColor = isUp ? '#10B981' : '#EF4444';
+            html += `<div class="tooltip-row" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(148,163,184,0.2)">
+                <span class="tooltip-label">День</span>
+                <span class="tooltip-change" style="color:${changeColor}">${isUp?'+':''}${q.changePct.toFixed(2)}%</span>
+            </div>`;
+        }
+    }
+
+    tooltipEl.innerHTML = html;
+    tooltipEl.classList.add('visible');
+
+    let left = tooltip.caretX + 16;
+    let top = tooltip.caretY - 20;
+    const tw = tooltipEl.offsetWidth || 180;
+    const th = tooltipEl.offsetHeight || 100;
+    if (left + tw > chart.width) left = tooltip.caretX - tw - 16;
+    if (top + th > chart.height) top = chart.height - th - 8;
+    if (top < 0) top = 8;
+    if (left < 0) left = 8;
+    tooltipEl.style.left = left + 'px';
+    tooltipEl.style.top = top + 'px';
+}
+
+// ==============================================================================
+// SETTINGS & THEME
+// ==============================================================================
+function applyTheme(theme) {
+    state.theme = theme;
+    localStorage.setItem('fd_theme', theme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+    document.querySelectorAll('#theme-toggle .toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+    if (state.chartInstance) updateChartTheme();
+}
+
+function applyFontWeight(weight) {
+    state.fontWeight = weight;
+    localStorage.setItem('fd_fontWeight', weight);
+    if (weight === 'bold') document.body.classList.add('font-bold-mode');
+    else document.body.classList.remove('font-bold-mode');
+    document.querySelectorAll('#font-toggle .toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.font === weight);
+    });
+}
+
+function setupSettings() {
+    const btn = document.getElementById('settings-btn');
+    const popover = document.getElementById('settings-popover');
+    const wrapper = document.getElementById('settings-wrapper');
+    btn.addEventListener('click', (e) => { e.stopPropagation(); popover.classList.toggle('hidden'); });
+    document.addEventListener('click', (e) => { if (!wrapper.contains(e.target)) popover.classList.add('hidden'); });
+    document.getElementById('theme-toggle').addEventListener('click', (e) => {
+        const b = e.target.closest('.toggle-btn'); if (b) applyTheme(b.dataset.theme);
+    });
+    document.getElementById('font-toggle').addEventListener('click', (e) => {
+        const b = e.target.closest('.toggle-btn'); if (b) applyFontWeight(b.dataset.font);
+    });
+    applyTheme(state.theme);
+    applyFontWeight(state.fontWeight);
+}
+
+// ==============================================================================
+// DATA FETCHING
+// ==============================================================================
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+async function fetchAllQuotes() {
+    try {
+        const url = `https://iss.moex.com/iss/securities.json?securities=${INSTRUMENTS.map(i=>i.id).join(',')}&iss.meta=off&iss.only=marketdata,securities`;
+        const data = await fetchJSON(url);
+        const secCols = data.securities.columns, secData = data.securities.data;
+        const mdCols = data.marketdata.columns, mdData = data.marketdata.data;
+        const idxSec = n => secCols.indexOf(n), idxMd = n => mdCols.indexOf(n);
+        INSTRUMENTS.forEach((inst, i) => {
+            const sr = secData[i], mr = mdData[i];
+            if (!sr || !mr) return;
+            const last = mr[idxMd('LAST')]||mr[idxMd('CURRENT')]||mr[idxMd('PREVPRICE')]||0;
+            const prev = sr[idxSec('PREVPRICE')]||mr[idxMd('PREVLEGALCLOSEPRICE')]||last;
+            const open = mr[idxMd('OPEN')]||last, high = mr[idxMd('HIGH')]||last, low = mr[idxMd('LOW')]||last;
+            const chg = last&&prev?last-prev:0, pct = prev?(chg/prev)*100:0;
+            state.quotes[inst.id] = { price:last||0, prevClose:prev||last||0, open:open||last||0, high:high||last||0, low:low||last||0, change:chg, changePct:pct, name:inst.name, ticker:inst.baseTicker||inst.id, type:inst.type };
+        });
+        state.isSimulating = false;
+        updateStatusUI(true);
+    } catch (e) {
+        console.warn('MOEX fetch failed:', e.message);
+        state.isSimulating = true;
+        initSimulation();
+        updateStatusUI(false);
+    }
+}
+
+function getHistoryUrl(inst, tf) {
+    const { engine, market, board, id } = inst;
+    const now = new Date();
+    switch(tf) {
+        case '1H': return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=1&from=${now.toISOString().slice(0,10)}&iss.meta=off`;
+        case '1D': return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=10&from=${now.toISOString().slice(0,10)}&iss.meta=off`;
+        case '1W': { const d=new Date(now); d.setDate(d.getDate()-7); return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=60&from=${d.toISOString().slice(0,10)}&iss.meta=off`; }
+        case '1M': { const d=new Date(now); d.setMonth(d.getMonth()-1); return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=60&from=${d.toISOString().slice(0,10)}&iss.meta=off`; }
+        case '1Y': { const d=new Date(now); d.setFullYear(d.getFullYear()-1); return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=24&from=${d.toISOString().slice(0,10)}&iss.meta=off`; }
+        case 'ALL': return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=7&from=2018-01-01&iss.meta=off`;
+        default: return `https://iss.moex.com/iss/engines/${engine}/markets/${market}/boards/${board}/securities/${id}/candles.json?interval=10&iss.meta=off`;
+    }
+}
+
+async function fetchHistory(tickerId, tf) {
+    const cacheKey = `${tickerId}_${tf}`;
+    if (state.histories[cacheKey]) return state.histories[cacheKey];
+    const inst = INSTRUMENTS.find(i => i.id === tickerId);
+    if (!inst) return [];
+    try {
+        const data = await fetchJSON(getHistoryUrl(inst, tf));
+        const cols = data.candles.columns;
+        const idxO=cols.indexOf('open'),idxC=cols.indexOf('close'),idxH=cols.indexOf('high'),idxL=cols.indexOf('low'),idxV=cols.indexOf('value'),idxB=cols.indexOf('begin');
+        const candles = data.candles.data.filter(r=>r[idxV]>0).map(r=>({time:new Date(r[idxB]).getTime(),o:r[idxO],h:r[idxH],l:r[idxL],c:r[idxC],v:r[idxV]})).sort((a,b)=>a.time-b.time);
+        state.histories[cacheKey] = candles;
+        return candles;
+    } catch(e) {
+        return generateFallbackHistory(tf, state.quotes[tickerId]?.price||100);
+    }
+}
+
+function generateFallbackHistory(tf, basePrice) {
+    const configs = {
+        '1H': { points: 60, intervalMs: 60000 },
+        '1D': { points: 78, intervalMs: 1200000 },
+        '1W': { points: 80, intervalMs: 3600000 },
+        '1M': { points: 120, intervalMs: 3600000 },
+        '1Y': { points: 252, intervalMs: 86400000 },
+        'ALL': { points: 500, intervalMs: 86400000 }
+    };
+    const cfg = configs[tf] || configs['1D'];
+    const now = Date.now();
+    const candles = [];
+    let price = basePrice * (0.95 + Math.random()*0.05);
+    for (let i = cfg.points; i >= 0; i--) {
+        const t = now - i * cfg.intervalMs;
+        const vol = basePrice * 0.005;
+        const o = price;
+        const c = o + (Math.random()-0.48)*vol;
+        const h = Math.max(o,c)+Math.random()*vol*0.5;
+        const l = Math.min(o,c)-Math.random()*vol*0.5;
+        candles.push({time:t,o,h,l,c,v:Math.floor(Math.random()*1000000)});
+        price = c;
+    }
+    return candles;
+}
+
+function initSimulation() {
+    INSTRUMENTS.forEach(inst => {
+        if (!state.quotes[inst.id]) {
+            const base = inst.type==='currency'?96.5:inst.type==='futures'?72.3:inst.id==='SBER'?285.4:inst.id==='GAZP'?155.2:inst.id==='MRKP'?0.28:inst.id==='MRKC'?0.35:0.42;
+            state.quotes[inst.id] = { price:base, prevClose:base, open:base, high:base, low:base, change:0, changePct:0, name:inst.name, ticker:inst.baseTicker||inst.id, type:inst.type };
+        }
+    });
+}
+
+function simulateTick() {
+    Object.keys(state.quotes).forEach(id => {
+        const q = state.quotes[id];
+        if (!q.price) return;
+        const delta = (Math.random()-0.48)*q.price*0.0015;
+        q.price = Math.max(0.01, +(q.price+delta).toFixed(q.price>10?2:4));
+        q.change = +(q.price-q.prevClose).toFixed(4);
+        q.changePct = q.prevClose?+((q.change/q.prevClose)*100).toFixed(2):0;
+        q.high = Math.max(q.high, q.price);
+        q.low = Math.min(q.low, q.price);
+        Object.keys(state.histories).forEach(key => {
+            if (key.startsWith(id+'_')) {
+                const hist = state.histories[key];
+                if (hist.length>0) {
+                    const last = hist[hist.length-1];
+                    last.c=q.price; last.h=Math.max(last.h,q.price); last.l=Math.min(last.l,q.price); last.v+=Math.floor(Math.random()*1000);
+                }
+            }
+        });
+    });
+}
+
+// ==============================================================================
+// SMART Y-AXIS FORMATTING
+// ==============================================================================
+function smartFormat(value) {
+    const absVal = Math.abs(value);
+    if (absVal < 10) return value.toLocaleString('ru-RU', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    if (absVal < 100) return value.toLocaleString('ru-RU', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    return value.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// ==============================================================================
+// UI RENDERING
+// ==============================================================================
+function renderSidebar() {
+    const container = document.getElementById('sidebar-list');
+    container.innerHTML = '';
+    INSTRUMENTS.forEach(inst => {
+        const q = state.quotes[inst.id];
+        const isActive = state.activeId === inst.id;
+        const price = q?q.price:0, pct = q?q.changePct:0, isUp = pct>=0;
+        const div = document.createElement('div');
+        div.className = `ticker-item p-3 flex items-center gap-3 ${isActive?'active':''}`;
+        div.innerHTML = `
+            <div class="flex-1 min-w-0" data-click-target="${inst.id}">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">${inst.baseTicker||inst.id}</span>
+                    <span class="text-sm font-semibold text-slate-700 truncate">${inst.name}</span>
+                </div>
+                <div class="flex items-center justify-between mt-1.5">
+                    <span class="text-base font-bold tabular-nums">${price?price.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:4}):'—'}</span>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-md tabular-nums ${isUp?'text-emerald-700 bg-emerald-50':'text-red-700 bg-red-50'}">${isUp?'+':''}${pct.toFixed(2)}%</span>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+    container.onclick = (e) => {
+        const ct = e.target.closest('[data-click-target]') || e.target.closest('.ticker-item');
+        if (ct) {
+            const id = ct.dataset?.clickTarget || ct.querySelector('[data-click-target]')?.dataset.clickTarget;
+            if (id && INSTRUMENTS.find(i=>i.id===id)) {
+                state.activeId = id;
+                renderSidebar();
+                renderSummary();
+                renderChart();
+            }
+        }
+    };
+}
+
+function renderSummary() {
+    const q = state.quotes[state.activeId], inst = INSTRUMENTS.find(i=>i.id===state.activeId);
+    if (!q||!inst) return;
+    document.getElementById('summary-name').textContent = inst.name;
+    document.getElementById('summary-ticker').textContent = inst.baseTicker||inst.id;
+    const dec = q.price>10?2:4;
+    document.getElementById('summary-price').textContent = q.price?q.price.toLocaleString('ru-RU',{minimumFractionDigits:dec,maximumFractionDigits:dec}):'—';
+    document.getElementById('summary-currency').textContent = inst.type==='currency'?'₽':inst.type==='futures'?'$':'руб.';
+    const isUp = q.change>=0;
+    const absEl = document.getElementById('summary-change-abs');
+    absEl.textContent = `${isUp?'+':''}${q.change.toFixed(dec)}`;
+    absEl.className = `text-lg font-bold tabular-nums ${isUp?'text-emerald-600':'text-red-500'}`;
+    const pctEl = document.getElementById('summary-change-pct');
+    pctEl.textContent = `${isUp?'+':''}${q.changePct.toFixed(2)}%`;
+    pctEl.className = `text-sm font-bold px-3 py-1.5 rounded-lg tabular-nums ${isUp?'text-emerald-700 bg-emerald-50':'text-red-700 bg-red-50'}`;
+    const mc = (Math.random()*10-4).toFixed(2);
+    document.getElementById('summary-analytics').textContent = `${inst.name}: Изменение за день ${isUp?'+':''}${q.changePct.toFixed(2)}%, изменение за месяц ${mc>0?'+':''}${mc}%. Сейчас цена: ${q.price.toFixed(dec)} руб. (Максимум за день: ${q.high.toFixed(dec)} / Минимум за день: ${q.low.toFixed(dec)})`;
+}
+
+function silentSummaryUpdate() {
+    const q = state.quotes[state.activeId], inst = INSTRUMENTS.find(i=>i.id===state.activeId);
+    if (!q||!inst) return;
+    const dec = q.price>10?2:4;
+    const ps = q.price?q.price.toLocaleString('ru-RU',{minimumFractionDigits:dec,maximumFractionDigits:dec}):'—';
+    const pe = document.getElementById('summary-price');
+    if (pe.textContent!==ps) pe.textContent=ps;
+    const isUp = q.change>=0;
+    const as = `${isUp?'+':''}${q.change.toFixed(dec)}`;
+    const ae = document.getElementById('summary-change-abs');
+    if (ae.textContent!==as) { ae.textContent=as; ae.className=`text-lg font-bold tabular-nums ${isUp?'text-emerald-600':'text-red-500'}`; }
+    const pcs = `${isUp?'+':''}${q.changePct.toFixed(2)}%`;
+    const pce = document.getElementById('summary-change-pct');
+    if (pce.textContent!==pcs) { pce.textContent=pcs; pce.className=`text-sm font-bold px-3 py-1.5 rounded-lg tabular-nums ${isUp?'text-emerald-700 bg-emerald-50':'text-red-700 bg-red-50'}`; }
+
+    document.querySelectorAll('#sidebar-list .ticker-item').forEach((item, index) => {
+        const ii = INSTRUMENTS[index]; if (!ii) return;
+        const iq = state.quotes[ii.id]; if (!iq) return;
+        const ip = iq.price?iq.price.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:4}):'—';
+        const ipct = iq.changePct, iu = ipct>=0;
+        const spans = item.querySelectorAll('.tabular-nums');
+        if (spans[0]&&spans[0].textContent!==ip) spans[0].textContent=ip;
+        if (spans[1]) {
+            const pt = `${iu?'+':''}${ipct.toFixed(2)}%`;
+            if (spans[1].textContent!==pt) { spans[1].textContent=pt; spans[1].className=`text-xs font-bold px-2 py-0.5 rounded-md tabular-nums ${iu?'text-emerald-700 bg-emerald-50':'text-red-700 bg-red-50'}`; }
+        }
+    });
+}
+
+function updateStatusUI(isLive) {
+    const dot = document.getElementById('status-dot'), text = document.getElementById('status-text');
+    if (isLive) { dot.className='w-2 h-2 rounded-full bg-emerald-400 live-dot'; text.textContent='Live'; text.className='text-[10px] font-semibold text-emerald-500 uppercase tracking-wide'; }
+    else { dot.className='w-2 h-2 rounded-full bg-slate-400 live-dot'; text.textContent='Offline'; text.className='text-[10px] font-semibold text-slate-400 uppercase tracking-wide'; }
+}
+
+// ==============================================================================
+// COMPARE MODE
+// ==============================================================================
+function setupCompare() {
+    const btn = document.getElementById('compare-btn');
+    const panel = document.getElementById('compare-panel');
+    const wrapper = document.getElementById('compare-wrapper');
+    const list = document.getElementById('compare-list');
+    const hint = document.getElementById('compare-hint');
+    const applyBtn = document.getElementById('compare-apply');
+    const resetBtn = document.getElementById('compare-reset-btn');
+
+    // Build list
+    list.innerHTML = '';
+    INSTRUMENTS.forEach((inst, i) => {
+        const item = document.createElement('div');
+        item.className = 'compare-item';
+        item.dataset.id = inst.id;
+        item.innerHTML = `
+            <div class="compare-check-custom" data-check="${inst.id}">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <span class="text-xs font-bold" style="color:${COMPARE_COLORS[i%COMPARE_COLORS.length]}">${inst.baseTicker||inst.id}</span>
+            <span class="text-sm font-medium text-slate-600 dark:text-slate-300 truncate flex-1">${inst.name}</span>
+        `;
+        item.addEventListener('click', () => {
+            const checkEl = item.querySelector('.compare-check-custom');
+            if (state.comparePendingIds.has(inst.id)) {
+                state.comparePendingIds.delete(inst.id);
+                checkEl.classList.remove('checked');
+            } else {
+                state.comparePendingIds.add(inst.id);
+                checkEl.classList.add('checked');
+            }
+            updateComparePanelState();
+        });
+        list.appendChild(item);
+    });
+
+    function updateComparePanelState() {
+        const count = state.comparePendingIds.size;
+        if (count >= 2) {
+            hint.textContent = `Выбрано: ${count} инструмента(ов)`;
+            hint.className = 'text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-3 px-1';
+            applyBtn.disabled = false;
+            applyBtn.className = 'apply-btn ready';
+        } else {
+            hint.textContent = 'Выберите минимум 2 акции для сравнения';
+            hint.className = 'text-xs text-amber-600 dark:text-amber-400 font-medium mb-3 px-1';
+            applyBtn.disabled = true;
+            applyBtn.className = 'apply-btn disabled';
+        }
+    }
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        panel.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target) && e.target !== resetBtn) panel.classList.add('hidden');
+    });
+
+    applyBtn.addEventListener('click', () => {
+        if (state.comparePendingIds.size < 2) return;
+        state.compareActiveIds = Array.from(state.comparePendingIds);
+        state.compareMode = true;
+        state.savedChartType = state.chartType;
+        state.chartType = 'area';
+        panel.classList.add('hidden');
+        resetBtn.classList.remove('hidden');
+        resetBtn.classList.add('flex');
+
+        // Disable bar/candle buttons
+        document.querySelectorAll('#type-buttons .btn-type').forEach(b => {
+            if (b.dataset.type !== 'area') {
+                b.disabled = true;
+                b.title = 'В режиме сравнения доступен только линейный график';
+                b.classList.remove('active');
+            } else {
+                b.classList.add('active');
+            }
+        });
+
+        btn.classList.add('active');
+        btn.style.backgroundColor = '#7C3AED';
+        btn.style.color = 'white';
+
+        renderChart();
+    });
+
+    resetBtn.addEventListener('click', () => exitCompareMode());
+}
+
+function exitCompareMode() {
+    state.compareMode = false;
+    state.compareActiveIds = [];
+    state.comparePendingIds.clear();
+    state.chartType = state.savedChartType;
+
+    document.querySelectorAll('#compare-list .compare-check-custom').forEach(c => c.classList.remove('checked'));
+    document.querySelectorAll('#type-buttons .btn-type').forEach(b => {
+        b.disabled = false;
+        b.title = '';
+        b.classList.toggle('active', b.dataset.type === state.chartType);
+    });
+
+    const btn = document.getElementById('compare-btn');
+    btn.classList.remove('active');
+    btn.style.backgroundColor = '';
+    btn.style.color = '';
+    
+    const resetBtn = document.getElementById('compare-reset-btn');
+    resetBtn.classList.add('hidden');
+    resetBtn.classList.remove('flex');
+    document.getElementById('compare-panel').classList.add('hidden');
+
+    renderChart();
+}
+
+// ==============================================================================
+// CHART RENDERING
+// ==============================================================================
+function computeYBounds(datasets, isCandle) {
+    let min = Infinity, max = -Infinity;
+    datasets.forEach(ds => {
+        ds.data.forEach(pt => {
+            if (isCandle && Array.isArray(pt.y)) {
+                if (pt.y[0]<min) min=pt.y[0]; if (pt.y[1]>max) max=pt.y[1];
+            } else {
+                const val = typeof pt==='object'?pt.y:pt;
+                if (val!=null&&!Array.isArray(val)) { if(val<min)min=val; if(val>max)max=val; }
+            }
+        });
+    });
+    if (!isFinite(min)||!isFinite(max)) return {};
+    if (min===max) { const p=Math.abs(min)*0.05||1; return {min:min-p,max:max+p}; }
+    const pad = (max-min)*0.12;
+    return {min:min-pad, max:max+pad};
+}
+
+function getTimeConfig(tf) {
+    switch(tf) {
+        case '1H': return { unit:'minute', stepSize:5, displayFormats:{minute:'HH:mm'}, tooltipFormat:'HH:mm' };
+        case '1D': return { unit:'minute', stepSize:20, displayFormats:{minute:'HH:mm'}, tooltipFormat:'HH:mm dd MMM' };
+        case '1W': return { unit:'hour', stepSize:4, displayFormats:{hour:'dd MMM HH:mm'}, tooltipFormat:'dd MMM HH:mm' };
+        case '1M': return { unit:'day', stepSize:1, displayFormats:{day:'dd MMM'}, tooltipFormat:'dd MMM yyyy HH:mm' };
+        case '1Y': return { unit:'month', stepSize:1, displayFormats:{month:'MMM yyyy'}, tooltipFormat:'dd MMM yyyy' };
+        case 'ALL': return { unit:'month', stepSize:3, displayFormats:{month:'MMM yyyy'}, tooltipFormat:'dd MMM yyyy' };
+        default: return { unit:'hour', displayFormats:{hour:'HH:mm'}, tooltipFormat:'dd MMM HH:mm' };
+    }
+}
+
+async function buildChartData() {
+    const isCompare = state.compareMode && state.compareActiveIds.length >= 2;
+    const idsToRender = isCompare ? state.compareActiveIds : [state.activeId];
+    const datasets = [];
+
+    for (let i=0; i<idsToRender.length; i++) {
+        const id = idsToRender[i];
+        const candles = await fetchHistory(id, state.timeframe);
+        if (!candles||candles.length===0) continue;
+
+        if (isCompare) {
+            const basePrice = candles[0].c;
+            const data = candles.map(c=>({x:c.time,y:((c.c-basePrice)/basePrice)*100}));
+            const color = COMPARE_COLORS[i%COMPARE_COLORS.length];
+            const inst = INSTRUMENTS.find(x=>x.id===id);
+            datasets.push({
+                label: inst?(inst.baseTicker||inst.id):id,
+                data, borderColor: color, backgroundColor: color+'15',
+                borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5,
+                pointHoverBackgroundColor: color, pointHoverBorderColor: '#fff', pointHoverBorderWidth: 2,
+                tension: 0.3, fill: false, type: 'line'
+            });
+        } else if (state.chartType === 'candle') {
+            const data = candles.map(c=>({x:c.time,y:[Math.min(c.o,c.c),Math.max(c.o,c.c)]}));
+            datasets.push({
+                label:'Цена', data, _isCandle:true, _ohlc:candles,
+                backgroundColor:'transparent', borderColor:'transparent', borderWidth:0,
+                barPercentage:0.8, categoryPercentage:0.9
+            });
+        } else if (state.chartType === 'bar') {
+            const data = candles.map(c=>({x:c.time,y:c.c}));
+            datasets.push({
+                label:'Цена', data, backgroundColor:'#6366F160', borderColor:'#6366F1',
+                borderWidth:1, borderRadius:2, barPercentage:0.7
+            });
+        } else {
+            const data = candles.map(c=>({x:c.time,y:c.c}));
+            datasets.push({
+                label:'Цена', data, borderColor:'#6366F1',
+                backgroundColor: (ctx) => {
+                    const chart = ctx.chart;
+                    const {ctx:c,chartArea} = chart;
+                    if (!chartArea) return 'rgba(99,102,241,0.1)';
+                    const gradient = c.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+                    gradient.addColorStop(0,'rgba(99,102,241,0.28)');
+                    gradient.addColorStop(0.35,'rgba(99,102,241,0.12)');
+                    gradient.addColorStop(0.65,'rgba(99,102,241,0.04)');
+                    gradient.addColorStop(1,'rgba(99,102,241,0.0)');
+                    return gradient;
+                },
+                borderWidth:2.5, pointRadius:0, pointHoverRadius:6,
+                pointHoverBackgroundColor:'#6366F1', pointHoverBorderColor:'#fff', pointHoverBorderWidth:3,
+                tension:0.3, fill:true
+            });
+        }
+    }
+    return {datasets, isCompare};
+}
+
+async function renderChart() {
+    const {datasets, isCompare} = await buildChartData();
+    if (datasets.length===0) return;
+
+    // Save zoom state before destroying
+    let savedXMin = null, savedXMax = null;
+    if (state.chartInstance && state.chartInstance.scales && state.chartInstance.scales.x) {
+        const xs = state.chartInstance.scales.x;
+        if (xs.min && xs.max) {
+            const origMin = xs.options.min;
+            const origMax = xs.options.max;
+            // Only save if user has zoomed/panned (scale range differs from full data range)
+            if (origMin != null || origMax != null) {
+                savedXMin = xs.min;
+                savedXMax = xs.max;
+            }
+        }
+    }
+
+    if (state.chartInstance) state.chartInstance.destroy();
+    registerPlugins();
+
+    const canvas = document.getElementById('main-chart');
+    const ctx = canvas.getContext('2d');
+    const isDark = state.theme==='dark';
+    const gridColor = isDark?'rgba(51,65,85,0.4)':'rgba(241,245,249,1)';
+    const tickColor = isDark?'#94A3B8':'#94A3B8';
+    const legendColor = isDark?'#E2E8F0':'#1E293B';
+    const yBounds = computeYBounds(datasets, state.chartType==='candle');
+    const timeCfg = getTimeConfig(state.timeframe);
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode:'index', intersect:false },
+        layout: { padding: { top:8, right:8, bottom:4, left:4 } },
+        plugins: {
+            legend: {
+                display: isCompare,
+                position: 'top',
+                labels: { usePointStyle:true, pointStyle:'circle', padding:20, font:{size:12,weight:'600'}, color:legendColor }
+            },
+            tooltip: {
+                enabled: false,
+                external: externalTooltipHandler,
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                    title: (items) => {
+                        if (!items.length) return '';
+                        const d = new Date(items[0].parsed.x||items[0].label);
+                        if (state.timeframe==='1H'||state.timeframe==='1D') {
+                            return d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) + ' · ' + d.toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+                        }
+                        return d.toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+                    },
+                    label: (item) => {
+                        if (isCompare) return ` ${item.dataset.label}: ${item.parsed.y>=0?'+':''}${item.parsed.y.toFixed(2)}%`;
+                        if (state.chartType==='candle') {
+                            const ohlc=item.dataset._ohlc[item.dataIndex];
+                            if (ohlc) return [` O: ${smartFormat(ohlc.o)}`,` H: ${smartFormat(ohlc.h)}`,` L: ${smartFormat(ohlc.l)}`,` C: ${smartFormat(ohlc.c)}`];
+                        }
+                        return ` Цена: ${smartFormat(item.parsed.y)}`;
+                    }
+                }
+            },
+            zoom: {
+                pan: {
+                    enabled: true,
+                    mode: 'x',
+                    onPanComplete: ({chart}) => autoFitYAxis(chart)
+                },
+                zoom: {
+                    wheel: { enabled: true, speed: 0.08 },
+                    pinch: { enabled: true },
+                    drag: { enabled: false },
+                    mode: 'x',
+                    onZoomComplete: ({chart}) => autoFitYAxis(chart)
+                },
+                limits: { x: { minRange: 60000 } }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                time: {
+                    unit: timeCfg.unit,
+                    stepSize: timeCfg.stepSize,
+                    displayFormats: timeCfg.displayFormats,
+                    tooltipFormat: timeCfg.tooltipFormat
+                },
+                grid: { color:gridColor, drawBorder:false, drawTicks:false },
+                ticks: { color:tickColor, font:{size:11}, maxTicksLimit: state.timeframe==='1H'?12:state.timeframe==='1D'?15:12, maxRotation:0, padding:8 },
+                border: { display:false }
+            },
+            y: {
+                position: 'right',
+                beginAtZero: false,
+                min: yBounds.min,
+                max: yBounds.max,
+                grid: { color:gridColor, drawBorder:false, drawTicks:false },
+                ticks: {
+                    color: tickColor,
+                    font: { size:11, weight:'500' },
+                    padding: 12,
+                    callback: (v) => isCompare ? (v>=0?'+':'')+v.toFixed(1)+'%' : smartFormat(v),
+                    maxTicksLimit: 8
+                },
+                border: { display:false }
+            }
+        },
+        animation: state.isInitialLoad ? {duration:500,easing:'easeOutQuart'} : false
+    };
+
+    // Restore zoom state if available
+    if (savedXMin != null && savedXMax != null) {
+        chartOptions.scales.x.min = savedXMin;
+        chartOptions.scales.x.max = savedXMax;
+    }
+
+    state.chartInstance = new Chart(ctx, {
+        type: state.chartType==='candle'?'bar':(state.chartType==='bar'?'bar':'line'),
+        data: {datasets},
+        options: chartOptions
+    });
+
+    state.isInitialLoad = false;
+}
+
+function autoFitYAxis(chart) {
+    if (!chart||!chart.scales||!chart.scales.x||!chart.scales.y) return;
+    const xScale = chart.scales.x;
+    const xMin = xScale.min, xMax = xScale.max;
+    if (!xMin||!xMax) return;
+
+    let min=Infinity, max=-Infinity;
+    const isCandle = state.chartType==='candle';
+    chart.data.datasets.forEach(ds => {
+        ds.data.forEach(pt => {
+            const x = typeof pt==='object'?pt.x:null;
+            if (x==null||x<xMin||x>xMax) return;
+            if (isCandle&&Array.isArray(pt.y)) { if(pt.y[0]<min)min=pt.y[0]; if(pt.y[1]>max)max=pt.y[1]; }
+            else { const v=typeof pt==='object'?pt.y:pt; if(v!=null&&!Array.isArray(v)){if(v<min)min=v;if(v>max)max=v;} }
+        });
+    });
+
+    if (isFinite(min)&&isFinite(max)) {
+        const range=max-min;
+        const padding=range*0.1||Math.abs(min)*0.05||1;
+        chart.options.scales.y.min=min-padding;
+        chart.options.scales.y.max=max+padding;
+        chart.update('none');
+    }
+}
+
+async function silentChartUpdate() {
+    if (!state.chartInstance) { await renderChart(); return; }
+
+    const isCompare = state.compareMode && state.compareActiveIds.length >= 2;
+    const idsToRender = isCompare ? state.compareActiveIds : [state.activeId];
+
+    let needsFullRedraw = false;
+    if (isCompare) {
+        const expectedLabels = idsToRender.map(id=>{const inst=INSTRUMENTS.find(x=>x.id===id);return inst?(inst.baseTicker||inst.id):id;}).join(',');
+        const currentLabels = state.chartInstance.data.datasets.map(d=>d.label).join(',');
+        if (currentLabels!==expectedLabels) needsFullRedraw=true;
+    } else {
+        if (state.chartInstance.data.datasets.length!==1||isCompare) needsFullRedraw=true;
+    }
+
+    if (needsFullRedraw) { await renderChart(); return; }
+
+    for (let i=0; i<idsToRender.length; i++) {
+        const id = idsToRender[i];
+        const candles = await fetchHistory(id, state.timeframe);
+        if (!candles||candles.length===0) continue;
+        const ds = state.chartInstance.data.datasets[i];
+        if (!ds) continue;
+        if (isCompare) {
+            const bp=candles[0].c;
+            ds.data=candles.map(c=>({x:c.time,y:((c.c-bp)/bp)*100}));
+        } else if (state.chartType==='candle') {
+            ds.data=candles.map(c=>({x:c.time,y:[Math.min(c.o,c.c),Math.max(c.o,c.c)]}));
+            ds._ohlc=candles;
+        } else {
+            ds.data=candles.map(c=>({x:c.time,y:c.c}));
+        }
+    }
+
+    // Recompute Y bounds for visible range only
+    const xScale = state.chartInstance.scales.x;
+    const xMin = xScale?.min, xMax = xScale?.max;
+    let min=Infinity, max=-Infinity;
+    const isCandle = state.chartType==='candle';
+
+    state.chartInstance.data.datasets.forEach(ds => {
+        ds.data.forEach(pt => {
+            const x = typeof pt==='object'?pt.x:null;
+            if (xMin&&xMax&&(x<xMin||x>xMax)) return;
+            if (isCandle&&Array.isArray(pt.y)) { if(pt.y[0]<min)min=pt.y[0];if(pt.y[1]>max)max=pt.y[1]; }
+            else { const v=typeof pt==='object'?pt.y:pt; if(v!=null&&!Array.isArray(v)){if(v<min)min=v;if(v>max)max=v;} }
+        });
+    });
+
+    if (isFinite(min)&&isFinite(max)) {
+        const range=max-min;
+        const padding=range*0.1||Math.abs(min)*0.05||1;
+        state.chartInstance.options.scales.y.min=min-padding;
+        state.chartInstance.options.scales.y.max=max+padding;
+    }
+
+    // Update without animation to preserve zoom/pan
+    state.chartInstance.update('none');
+}
+
+function updateChartTheme() {
+    if (!state.chartInstance) return;
+    const isDark = state.theme==='dark';
+    const gc = isDark?'rgba(51,65,85,0.4)':'rgba(241,245,249,1)';
+    const tc = isDark?'#94A3B8':'#94A3B8';
+    const lc = isDark?'#E2E8F0':'#1E293B';
+    state.chartInstance.options.scales.x.grid.color=gc;
+    state.chartInstance.options.scales.x.ticks.color=tc;
+    state.chartInstance.options.scales.y.grid.color=gc;
+    state.chartInstance.options.scales.y.ticks.color=tc;
+    if (state.chartInstance.options.plugins.legend.labels) state.chartInstance.options.plugins.legend.labels.color=lc;
+    state.chartInstance.update('none');
+}
+
+// ==============================================================================
+// ZOOM CONTROLS
+// ==============================================================================
+function setupZoomControls() {
+    document.getElementById('zoom-in').addEventListener('click', () => {
+        if (state.chartInstance) { state.chartInstance.zoom(1.3); autoFitYAxis(state.chartInstance); }
+    });
+    document.getElementById('zoom-out').addEventListener('click', () => {
+        if (state.chartInstance) { state.chartInstance.zoom(0.7); autoFitYAxis(state.chartInstance); }
+    });
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+        if (state.chartInstance) {
+            state.chartInstance.resetZoom();
+            // After reset, recompute Y for full dataset
+            setTimeout(() => {
+                const yBounds = computeYBounds(state.chartInstance.data.datasets, state.chartType==='candle');
+                if (yBounds.min!=null) {
+                    state.chartInstance.options.scales.y.min=yBounds.min;
+                    state.chartInstance.options.scales.y.max=yBounds.max;
+                    state.chartInstance.update('none');
+                }
+            }, 60);
+        }
+    });
+}
+
+// ==============================================================================
+// EVENT HANDLERS
+// ==============================================================================
+function setupControls() {
+    document.getElementById('tf-buttons').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-tf');
+        if (!btn) return;
+        document.querySelectorAll('#tf-buttons .btn-tf').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        state.timeframe=btn.dataset.tf;
+        state.histories={};
+        state.isInitialLoad=true;
+        await renderChart();
+    });
+
+    document.getElementById('type-buttons').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-type');
+        if (!btn||btn.disabled) return;
+        document.querySelectorAll('#type-buttons .btn-type').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        state.chartType=btn.dataset.type;
+        state.savedChartType=state.chartType;
+        state.histories={};
+        state.isInitialLoad=true;
+        await renderChart();
+    });
+}
+
+// ==============================================================================
+// AUTO-REFRESH (Silent 5 seconds)
+// ==============================================================================
+function startRefreshTimer() {
+    setInterval(async () => {
+        if (state.isSimulating) simulateTick();
+        else {
+            await fetchAllQuotes();
+            if (state.isSimulating) simulateTick();
+        }
+        // Invalidate history cache for current timeframe so fresh candles are fetched
+        const keysToDelete = Object.keys(state.histories).filter(k=>k.endsWith(`_${state.timeframe}`));
+        keysToDelete.forEach(k=>delete state.histories[k]);
+        silentSummaryUpdate();
+        silentChartUpdate();
+    }, REFRESH_INTERVAL*1000);
+}
+
+// ==============================================================================
+// INITIALIZATION
+// ==============================================================================
+async function init() {
+    setupSettings();
+    setupControls();
+    setupCompare();
+    setupZoomControls();
+    
+    await fetchAllQuotes();
+    if (state.isSimulating) simulateTick();
+
+    renderSidebar();
+    renderSummary();
+    await renderChart();
+
+    startRefreshTimer();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
